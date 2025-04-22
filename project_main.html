@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodMate - Interactive Mood Journal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .weather-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            opacity: 0.4;
+            transition: all 0.5s ease;
+        }
+        
+        .weather-sunny {
+            background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+        }
+        .sun {
+            position: absolute;
+            top: 50px;
+            right: 100px;
+            width: 80px;
+            height: 80px;
+            background: #ffeb3b;
+            border-radius: 50%;
+            box-shadow: 0 0 50px #ffeb3b;
+            animation: pulse 3s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .weather-rainy {
+            background: linear-gradient(to bottom, #292E49, #536976);
+        }
+        .rain {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .drop {
+            position: absolute;
+            bottom: 100%;
+            width: 2px;
+            height: 15px;
+            background: linear-gradient(transparent, #7fbaff);
+            border-radius: 0 0 5px 5px;
+            animation: drop linear infinite;
+        }
+        @keyframes drop {
+            0% { transform: translateY(0); opacity: 1; }
+            75% { transform: translateY(85vh); opacity: 0.8; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        
+        .weather-cloudy {
+            background: linear-gradient(to bottom, #757F9A, #D7DDE8);
+        }
+        .cloud {
+            position: absolute;
+            background: #e8f0fc;
+            border-radius: 50%;
+            animation: float 30s linear infinite;
+            opacity: 0.8;
+        }
+        @keyframes float {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100vw); }
+        }
+        
+        .weather-snow {
+            background: linear-gradient(to bottom, #8e9eab, #eef2f3);
+        }
+        .snowflake {
+            position: absolute;
+            top: -20px;
+            color: white;
+            opacity: 0.8;
+            animation: snowfall linear infinite;
+        }
+        @keyframes snowfall {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(100vh) rotate(360deg); }
+        }
+
+        .calendar-day {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .calendar-day.has-mood::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+        .fade-enter {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .fade-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        @media (max-width: 1023px) {
+            .layout-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen font-sans">
+    <div id="weather-animation" class="weather-container">
+    </div>
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <div class="layout-container flex lg:flex-row flex-col gap-6">
+            <div class="lg:w-1/2 w-full">
+                <div class="bg-white bg-opacity-80 rounded-3xl shadow-lg overflow-hidden h-full backdrop-blur-sm">
+                    <div class="bg-orange-300 bg-opacity-90 p-4 flex justify-between items-center">
+                        <h1 class="text-2xl font-bold text-white">MoodMate</h1>
+                        <div id="weather-display" class="flex items-center bg-white bg-opacity-30 px-3 py-1 rounded-full text-white">
+                            <span id="weather-icon" class="mr-1"></span>
+                            <span id="temperature"></span>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <h2 id="current-date" class="text-xl font-semibold mb-2 text-center"></h2>
+                            <p class="text-gray-600 text-center mb-4">How are you feeling today?</p>
+                            
+                            <div class="flex justify-between mb-6">
+                                <button class="mood-btn p-3 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all" data-mood="happy">
+                                    <span class="text-2xl">😊</span>
+                                </button>
+                                <button class="mood-btn p-3 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all" data-mood="neutral">
+                                    <span class="text-2xl">😐</span>
+                                </button>
+                                <button class="mood-btn p-3 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all" data-mood="sad">
+                                    <span class="text-2xl">😔</span>
+                                </button>
+                                <button class="mood-btn p-3 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all" data-mood="angry">
+                                    <span class="text-2xl">😠</span>
+                                </button>
+                                <button class="mood-btn p-3 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all" data-mood="sick">
+                                    <span class="text-2xl">🤢</span>
+                                </button>
+                            </div>
+                            
+                            <div class="bg-orange-50 bg-opacity-70 rounded-xl p-4 mb-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <button id="prev-month" class="text-gray-500 hover:text-orange-500">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h3 id="calendar-month" class="text-lg font-medium"></h3>
+                                    <button id="next-month" class="text-gray-500 hover:text-orange-500">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="grid grid-cols-7 gap-1 text-center">
+                                    <div class="text-xs font-medium text-gray-500">S</div>
+                                    <div class="text-xs font-medium text-gray-500">M</div>
+                                    <div class="text-xs font-medium text-gray-500">T</div>
+                                    <div class="text-xs font-medium text-gray-500">W</div>
+                                    <div class="text-xs font-medium text-gray-500">T</div>
+                                    <div class="text-xs font-medium text-gray-500">F</div>
+                                    <div class="text-xs font-medium text-gray-500">S</div>
+                                    
+                                    <div id="calendar-days" class="col-span-7 grid grid-cols-7 gap-1"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <textarea id="mood-note" class="w-full p-4 border border-gray-200 rounded-xl h-24 focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white bg-opacity-90" placeholder="Add a note..."></textarea>
+                        </div>
+
+                        <button id="save-entry" class="w-full bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-xl font-semibold transition-colors">
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:w-1/2 w-full">
+                <div class="bg-white bg-opacity-80 rounded-3xl shadow-lg overflow-hidden h-full p-6 backdrop-blur-sm">
+                    <h2 class="text-xl font-semibold mb-4 text-orange-400">All Notes</h2>
+                    <div id="mood-entries" class="space-y-4 overflow-y-auto max-h-[600px] pr-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const currentDateEl = document.getElementById('current-date');
+        const temperatureEl = document.getElementById('temperature');
+        const weatherIconEl = document.getElementById('weather-icon');
+        const moodBtns = document.querySelectorAll('.mood-btn');
+        const moodNoteEl = document.getElementById('mood-note');
+        const saveBtn = document.getElementById('save-entry');
+        const calendarMonthEl = document.getElementById('calendar-month');
+        const calendarDaysEl = document.getElementById('calendar-days');
+        const prevMonthBtn = document.getElementById('prev-month');
+        const nextMonthBtn = document.getElementById('next-month');
+        const moodEntriesEl = document.getElementById('mood-entries');
+        const weatherAnimationEl = document.getElementById('weather-animation');
+
+        let selectedMood = null;
+        let currentLocation = null;
+        let currentWeather = null;
+        let currentDate = new Date();
+        let displayedMonth = new Date();
+
+        function init() {
+            setupEventListeners();
+            displayCurrentDate();
+            getLocation();
+            loadCalendar();
+            displayMoodEntries();
+        }
+
+        function setupEventListeners() {
+            moodBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    moodBtns.forEach(b => b.classList.remove('bg-yellow-100', 'ring-2', 'ring-orange-300'));
+                    btn.classList.add('bg-yellow-100', 'ring-2', 'ring-orange-300');
+                    selectedMood = btn.getAttribute('data-mood');
+                });
+            });
+
+            saveBtn.addEventListener('click', saveEntry);
+
+            prevMonthBtn.addEventListener('click', () => {
+                displayedMonth.setMonth(displayedMonth.getMonth() - 1);
+                loadCalendar();
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                displayedMonth.setMonth(displayedMonth.getMonth() + 1);
+                loadCalendar();
+            });
+        }
+
+        function displayCurrentDate() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            currentDateEl.textContent = currentDate.toLocaleDateString('en-US', options);
+        }
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        currentLocation = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        };
+                        getWeather(currentLocation.lat,currentLocation.lon);
+                    },
+                    error => {
+                        console.error("Error getting location:", error);
+                        temperatureEl.textContent = "Location unavailable";
+                    }
+                );
+            } else {
+                temperatureEl.textContent = "Geolocation not supported";
+            }
+        }
+
+        function getWeather(lat,lon) {
+            const apiKey = '87a7b4bc4c795bf6918dc7e24e4fec0f';
+            const url = `https://api.openweathermap.org/data/2.5/weather?lat=${currentLocation.lat}&lon=${currentLocation.lon}&units=metric&appid=${apiKey}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    currentWeather = {
+                        temp: Math.round(data.main.temp),
+                        icon: data.weather[0].icon,
+                        description: data.weather[0].description,
+                        main: data.weather[0].main
+                    };
+                    displayWeather();
+                    updateWeatherAnimation(currentWeather.main);
+                })
+                .catch(err => {
+                    console.error("Error fetching weather:", err);
+                    temperatureEl.textContent = "Weather unavailable";
+                });
+        }
+
+        function displayWeather() {
+            temperatureEl.textContent = `${currentWeather.temp}°C`;
+            weatherIconEl.innerHTML = getWeatherIcon(currentWeather.icon);
+        }
+
+        function getWeatherIcon(iconCode) {
+            const iconMap = {
+                '01d': '<i class="fas fa-sun text-yellow-400"></i>',
+                '01n': '<i class="fas fa-moon text-gray-400"></i>',
+                '02d': '<i class="fas fa-cloud-sun text-yellow-400"></i>',
+                '02n': '<i class="fas fa-cloud-moon text-gray-400"></i>',
+                '03d': '<i class="fas fa-cloud text-gray-400"></i>',
+                '03n': '<i class="fas fa-cloud text-gray-400"></i>',
+                '04d': '<i class="fas fa-cloud text-gray-400"></i>',
+                '04n': '<i class="fas fa-cloud text-gray-400"></i>',
+                '09d': '<i class="fas fa-cloud-rain text-blue-400"></i>',
+                '09n': '<i class="fas fa-cloud-rain text-blue-400"></i>',
+                '10d': '<i class="fas fa-cloud-sun-rain text-blue-400"></i>',
+                '10n': '<i class="fas fa-cloud-moon-rain text-blue-400"></i>',
+                '11d': '<i class="fas fa-bolt text-yellow-400"></i>',
+                '11n': '<i class="fas fa-bolt text-yellow-400"></i>',
+                '13d': '<i class="fas fa-snowflake text-white"></i>',
+                '13n': '<i class="fas fa-snowflake text-white"></i>',
+                '50d': '<i class="fas fa-smog text-gray-400"></i>',
+                '50n': '<i class="fas fa-smog text-gray-400"></i>'
+            };
+
+            return iconMap[iconCode] || '<i class="fas fa-question-circle"></i>';
+        }
+
+        function updateWeatherAnimation(weatherMain) {
+            weatherAnimationEl.innerHTML = '';
+            weatherAnimationEl.className = 'weather-container';
+
+            if (weatherMain === 'Clear') {
+                weatherAnimationEl.classList.add('weather-sunny');
+                const sun = document.createElement('div');
+                sun.className = 'sun';
+                weatherAnimationEl.appendChild(sun);
+            } 
+            else if (weatherMain === 'Rain' || weatherMain === 'Drizzle') {
+                weatherAnimationEl.classList.add('weather-rainy');
+                const rain = document.createElement('div');
+                rain.className = 'rain';
+                
+                for (let i = 0; i < 50; i++) {
+                    const drop = document.createElement('div');
+                    drop.className = 'drop';
+                    drop.style.left = `${Math.random() * 100}%`;
+                    drop.style.animationDuration = `${0.5 + Math.random() * 1}s`;
+                    drop.style.animationDelay = `${Math.random() * 2}s`;
+                    rain.appendChild(drop);
+                }
+                
+                weatherAnimationEl.appendChild(rain);
+            } 
+            else if (weatherMain === 'Clouds') {
+                weatherAnimationEl.classList.add('weather-cloudy');
+                
+                for (let i = 0; i < 5; i++) {
+                    const cloud = document.createElement('div');
+                    cloud.className = 'cloud';
+                    cloud.style.top = `${10 + Math.random() * 20}%`;
+                    cloud.style.width = `${60 + Math.random() * 100}px`;
+                    cloud.style.height = `${60 + Math.random() * 60}px`;
+                    cloud.style.opacity = `${0.6 + Math.random() * 0.3}`;
+                    cloud.style.animationDuration = `${30 + Math.random() * 30}s`;
+                    cloud.style.animationDelay = `${Math.random() * 10}s`;
+                    weatherAnimationEl.appendChild(cloud);
+                }
+            } 
+            else if (weatherMain === 'Snow') {
+                weatherAnimationEl.classList.add('weather-snow');
+                
+                for (let i = 0; i < 50; i++) {
+                    const snowflake = document.createElement('div');
+                    snowflake.className = 'snowflake';
+                    snowflake.innerHTML = '❄';
+                    snowflake.style.left = `${Math.random() * 100}%`;
+                    snowflake.style.fontSize = `${5 + Math.random() * 10}px`;
+                    snowflake.style.animationDuration = `${5 + Math.random() * 10}s`;
+                    snowflake.style.animationDelay = `${Math.random() * 5}s`;
+                    weatherAnimationEl.appendChild(snowflake);
+                }
+            } 
+            else {
+                weatherAnimationEl.style.background = 'linear-gradient(to bottom, #f0f8ff, #e6e9f0)';
+            }
+        }
+
+        function getMoodColor(mood) {
+            const colors = {
+                'happy': 'bg-yellow-400',
+                'neutral': 'bg-gray-300',
+                'sad': 'bg-blue-300',
+                'angry': 'bg-red-400',
+                'sick': 'bg-green-300'
+            };
+            
+            return colors[mood] || 'bg-gray-200';
+        }
+
+        function getMoodBorderColor(mood) {
+            const colors = {
+                'happy': 'border-yellow-400',
+                'neutral': 'border-gray-300',
+                'sad': 'border-blue-300',
+                'angry': 'border-red-400',
+                'sick': 'border-green-300'
+            };
+            
+            return colors[mood] || 'border-gray-200';
+        }
+
+        function getMoodEmoji(mood) {
+            const emojis = {
+                'happy': '😊',
+                'neutral': '😐',
+                'sad': '😔',
+                'angry': '😠',
+                'sick': '🤢'
+            };
+
+            return emojis[mood] || '❔';
+        }
+
+        function saveEntry() {
+            if (!selectedMood) {
+                alert('Please select a mood first!');
+                return;
+            }
+
+            const entry = {
+                date: currentDate.toISOString(),
+                mood: selectedMood,
+                note: moodNoteEl.value.trim(),
+                weather: currentWeather || null
+            };
+
+            const entries = JSON.parse(localStorage.getItem('moodEntries')) || [];
+            
+            entries.push(entry);
+            
+            localStorage.setItem('moodEntries', JSON.stringify(entries));
+            
+            moodBtns.forEach(btn => btn.classList.remove('bg-yellow-100', 'ring-2', 'ring-orange-300'));
+            moodNoteEl.value = '';
+            selectedMood = null;
+            
+            const notification = document.createElement('div');
+            notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg fade-enter';
+            notification.textContent = 'Your mood has been saved!';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('fade-enter-active');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+            
+            loadCalendar();
+            displayMoodEntries();
+        }
+
+        function loadCalendar() {
+            const monthYearStr = new Intl.DateTimeFormat('en-US', { 
+                month: 'long', 
+                year: 'numeric' 
+            }).format(displayedMonth);
+            calendarMonthEl.textContent = monthYearStr;
+            
+            calendarDaysEl.innerHTML = '';
+            
+            const firstDay = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth(), 1);
+            const lastDay = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth() + 1, 0);
+            
+            const entries = JSON.parse(localStorage.getItem('moodEntries')) || [];
+            
+            const startingDayOfWeek = firstDay.getDay();
+            const prevMonthLastDay = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth(), 0).getDate();
+            
+            for (let i = startingDayOfWeek; i > 0; i--) {
+                const day = prevMonthLastDay - i + 1;
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day text-xs text-gray-400';
+                dayEl.textContent = day;
+                calendarDaysEl.appendChild(dayEl);
+            }
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth(), day);
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day text-sm rounded-full flex items-center justify-center';
+                
+                const dayEntry = entries.find(entry => {
+                    const entryDate = new Date(entry.date);
+                    return entryDate.getDate() === day && 
+                           entryDate.getMonth() === displayedMonth.getMonth() && 
+                           entryDate.getFullYear() === displayedMonth.getFullYear();
+                });
+                
+                if (dayEntry) {
+                    dayEl.classList.add(getMoodColor(dayEntry.mood), 'has-mood', 'text-white');
+                }
+                
+                if (
+                    date.getDate() === currentDate.getDate() && 
+                    date.getMonth() === currentDate.getMonth() && 
+                    date.getFullYear() === currentDate.getFullYear()
+                ) {
+                    if (!dayEntry) {
+                        dayEl.classList.add('ring-2', 'ring-orange-400');
+                    } else {
+                        dayEl.classList.add('ring-2', 'ring-white');
+                    }
+                }
+                
+                dayEl.textContent = day;
+                calendarDaysEl.appendChild(dayEl);
+            }
+            
+            const cellsAdded = startingDayOfWeek + lastDay.getDate();
+            const cellsToAdd = cellsAdded % 7 === 0 ? 0 : 7 - (cellsAdded % 7);
+            
+            for (let day = 1; day <= cellsToAdd; day++) {
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day text-xs text-gray-400';
+                dayEl.textContent = day;
+                calendarDaysEl.appendChild(dayEl);
+            }
+        }
+
+        function displayMoodEntries() {
+            moodEntriesEl.innerHTML = '';
+            
+            const entries = JSON.parse(localStorage.getItem('moodEntries')) || [];
+            
+            entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            entries.forEach(entry => {
+                const entryDate = new Date(entry.date);
+                const formattedDate = entryDate.toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                
+                const entryEl = document.createElement('div');
+                entryEl.className = `bg-orange-50 bg-opacity-80 rounded-xl p-4 shadow border-l-4 ${getMoodBorderColor(entry.mood)}`;
+                
+                entryEl.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-2">${getMoodEmoji(entry.mood)}</span>
+                            <span class="text-sm text-gray-500">${formattedDate}</span>
+                        </div>
+                        ${entry.weather ? `
+                        <div class="flex items-center text-sm text-gray-500">
+                            ${getWeatherIcon(entry.weather.icon)}
+                            <span class="ml-1">${entry.weather.temp}°C</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${entry.note ? `<p class="text-gray-700">${entry.note}</p>` : ''}
+                `;
+                
+                moodEntriesEl.appendChild(entryEl);
+            });
+            
+            if (entries.length === 0) {
+                const messageEl = document.createElement('p');
+                messageEl.className = 'text-center text-gray-500 py-4';
+                messageEl.textContent = 'No mood entries yet. Start tracking your mood!';
+                moodEntriesEl.appendChild(messageEl);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
